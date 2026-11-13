@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   run:
@@ -66,3 +66,19 @@ jobs:
             echo "- 时间（UTC）：$(date -u '+%Y-%m-%d %H:%M:%S')"
             echo "- 结论：${{ steps.run.outcome == 'success' && '成功' || '失败（看上方日志）' }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # 公开仓库若连续 60 天没有任何提交，GitHub 会自动停用定时任务。
+      # 每月 1 号自动提交一次时间戳，把定时任务续上，避免「悄悄停了」。
+      - name: 每月保活提交
+        if: github.event_name == 'schedule'
+        run: |
+          if [ "$(date -u +%d)" != "01" ]; then
+            echo "今天不是 1 号，跳过保活"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          date -u '+%Y-%m-%dT%H:%M:%SZ' > .keepalive
+          git add .keepalive
+          git commit -m "chore: 定时任务保活 $(date -u +%Y-%m)"
+          git push
