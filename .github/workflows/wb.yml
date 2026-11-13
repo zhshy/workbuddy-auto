@@ -1,0 +1,68 @@
+name: WorkBuddy 自动领积分
+
+# 每小时第 7 分钟跑一次（UTC）。北京时间 = UTC+8，即每小时 :07 分。
+# 频率高一点是为了让「猫回来了 → 领奖励」这一步及时触发；
+# 签到和派出都是幂等的，重复跑不会多领、不会扣分。
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+
+# 同一时间只允许一个实例，避免并发导致重复请求
+concurrency:
+  group: workbuddy-auto
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 恢复 token 状态（可能比 Secret 里的新）
+        uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: wb-state-${{ github.run_id }}
+          restore-keys: |
+            wb-state-
+
+      - name: 准备 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 执行签到与猫猫旅行
+        id: run
+        env:
+          WB_TOKEN: ${{ secrets.WB_TOKEN }}
+          WB_UID: ${{ secrets.WB_UID }}
+          WB_REFRESH: ${{ secrets.WB_REFRESH }}
+          WB_DOMAIN: ${{ secrets.WB_DOMAIN }}
+          WB_LOCATION_ID: ${{ vars.WB_LOCATION_ID }}
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+        run: python wb.py
+
+      - name: 保存 token 状态
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state.json
+          key: wb-state-${{ github.run_id }}
+
+      - name: 写运行摘要
+        if: always()
+        run: |
+          {
+            echo "### WorkBuddy 本次运行"
+            echo ""
+            echo "- 时间（UTC）：$(date -u '+%Y-%m-%d %H:%M:%S')"
+            echo "- 结论：${{ steps.run.outcome == 'success' && '成功' || '失败（看上方日志）' }}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,10 @@
+# 凭证，绝对不能提交
+tokens.json
+state.json
+*.local.json
+
+# 系统
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
