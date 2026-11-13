@@ -30,13 +30,27 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+def log(msg):
+    print(msg, flush=True)
+
+
 HOST = os.environ.get("WB_HOST", "https://www.workbuddy.cn").rstrip("/")
 DOMAIN = os.environ.get("WB_DOMAIN", "www.workbuddy.cn")
 UID = os.environ.get("WB_UID", "")
 TOKEN = os.environ.get("WB_TOKEN", "")
 REFRESH = os.environ.get("WB_REFRESH", "")
 STATE_FILE = os.environ.get("WB_STATE_FILE", "state.json")
-LOCATION_ID = int(os.environ.get("WB_LOCATION_ID", "1"))
+def _env_int(name, default):
+    """环境变量可能是空串（Actions 里未定义的 vars 会传空），要兜住。"""
+    raw = (os.environ.get(name) or "").strip()
+    try:
+        return int(raw) if raw else default
+    except ValueError:
+        log("⚠️ %s=%r 不是整数，改用默认值 %s" % (name, raw, default))
+        return default
+
+
+LOCATION_ID = _env_int("WB_LOCATION_ID", 1)
 DRY_RUN = os.environ.get("WB_DRY_RUN", "") == "1"
 
 STATUS_PATH = "/v2/billing/meter/checkin-activity-status"
@@ -45,10 +59,6 @@ TRAVEL_STATUS = "/v2/activity/growth/buddy/travel/status"
 TRAVEL_DEPART = "/v2/activity/growth/buddy/travel/depart"
 TRAVEL_CLAIM = "/v2/activity/growth/buddy/travel/claim"
 REFRESH_PATH = "/v2/plugin/auth/token/refresh"
-
-
-def log(msg):
-    print(msg, flush=True)
 
 
 # ---------------------------------------------------------------- HTTP
